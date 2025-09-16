@@ -1,0 +1,16 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: onboarding-scheduler-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: sh -c "pnpm dev --host"
+volumes:
+  node_modules:
