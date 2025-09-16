@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # 開発サーバーを起動
-CMD ["pnpm", "dev", "--host"]
+CMD ["pnpm", "dev"]
