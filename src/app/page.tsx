@@ -1,6 +1,7 @@
 'use client'
 
 import {useState} from 'react'
+import { useSession, signOut } from 'next-auth/react'
 
 const MOCK_MEMBERS = [
     {id: '1', name: '田中太郎', email: 'tanaka@example.com'},
@@ -11,6 +12,7 @@ const MOCK_MEMBERS = [
 ]
 
 export default function Home() {
+    const { data: session, status } = useSession()
     const today = new Date()
     const twoWeeksLater = new Date(today)
     twoWeeksLater.setDate(today.getDate() + 14)
@@ -38,12 +40,19 @@ export default function Home() {
         member.email.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
-    const handleMemberToggle = (memberId: string) => {
-        setSelectedMembers(prev =>
-            prev.includes(memberId)
-                ? prev.filter(id => id !== memberId)
-                : [...prev, memberId]
-        )
+    const handleMemberAdd = (memberId: string) => {
+        const member = MOCK_MEMBERS.find(m => m.id === memberId)
+        if (member && !selectedMembers.includes(memberId)) {
+            setSelectedMembers(prev => [...prev, memberId])
+        }
+    }
+
+    const handleMemberRemove = (memberId: string) => {
+        setSelectedMembers(prev => prev.filter(id => id !== memberId))
+    }
+
+    const getSelectedMembersData = () => {
+        return selectedMembers.map(id => MOCK_MEMBERS.find(m => m.id === id)).filter(Boolean)
     }
 
     const handleSearchCandidates = async () => {
@@ -96,40 +105,140 @@ export default function Home() {
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
                         📅 日程調整
                     </h1>
-                    <p className="text-gray-600 mb-8">
+                    <p className="text-gray-600 mb-4">
                         メンバーの空き時間から最適な研修枠を見つけて、Google Calendarにイベントを作成します。
                     </p>
+
+                    {/* Google認証ステータス */}
+                    {session ? (
+                        <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm">
+                            <div className="flex items-center">
+                                <svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                <div className="flex-1">
+                                    <h3 className="text-sm font-semibold text-green-800">
+                                        Google Calendarに連携済み
+                                    </h3>
+                                    <p className="text-sm text-green-700 mt-1">
+                                        {session.user?.name || session.user?.email} としてログイン中
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => signOut()}
+                                    className="ml-4 bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-200 transition-all duration-200 shadow-sm border border-green-200"
+                                >
+                                    ログアウト
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+                            <div className="flex items-center">
+                                <svg className="h-5 w-5 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <div className="flex-1">
+                                    <h3 className="text-sm font-semibold text-blue-800">
+                                        Google Calendar連携が必要です
+                                    </h3>
+                                    <p className="text-sm text-blue-700 mt-1">
+                                        日程調整機能を使用するには、Google Calendarとの連携が必要です。
+                                    </p>
+                                </div>
+                                <a
+                                    href="/auth"
+                                    className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow"
+                                >
+                                    連携設定
+                                </a>
+                            </div>
+                        </div>
+                    )}
 
                     {/* メンバー選択セクション */}
                     <div className="mb-8">
                         <h2 className="text-xl font-semibold text-gray-900 mb-4">
                             1. 対象メンバー選択
                         </h2>
+
+                        {/* 選択済みメンバー（スタック表示） */}
+                        {getSelectedMembersData().length > 0 && (
+                            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+                                <h3 className="text-sm font-semibold text-blue-800 mb-3">
+                                    選択中のメンバー ({selectedMembers.length}人)
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {getSelectedMembersData().map(member => (
+                                        <div key={member.id} className="flex items-center bg-blue-600 text-white px-3 py-2 rounded-full text-sm font-medium shadow-sm">
+                                            <span>{member.name}</span>
+                                            <button
+                                                onClick={() => handleMemberRemove(member.id)}
+                                                className="ml-2 hover:bg-blue-700 rounded-full p-0.5 transition-all duration-200"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* メンバー検索・追加 */}
                         <input
                             type="text"
-                            placeholder="メンバーを検索..."
+                            placeholder="メンバーを検索して追加..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+                            className="text-gray-900 w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4 shadow-sm"
                         />
-                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-4 bg-gray-50">
-                            {filteredMembers.map(member => (
-                                <label key={member.id} className="flex items-center mb-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedMembers.includes(member.id)}
-                                        onChange={() => handleMemberToggle(member.id)}
-                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                    />
-                                    <span className="ml-3 text-sm text-gray-700">
-                    {member.name} ({member.email})
-                  </span>
-                                </label>
-                            ))}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-2">
-                            選択中: {selectedMembers.length}人
-                        </p>
+
+                        {/* 検索結果 */}
+                        {searchQuery && (
+                            <div className="max-h-48 overflow-y-auto border border-blue-200 rounded-lg p-4 bg-blue-50 shadow-sm">
+                                {filteredMembers.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {filteredMembers.map(member => (
+                                            <div key={member.id} className="flex items-center justify-between p-3 hover:bg-white rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm">
+                                                <div className="flex-1">
+                                                    <div className="text-sm font-semibold text-gray-900">{member.name}</div>
+                                                    <div className="text-xs text-blue-600">{member.email}</div>
+                                                </div>
+                                                {selectedMembers.includes(member.id) ? (
+                                                    <span className="text-xs text-blue-700 bg-blue-100 px-3 py-1.5 rounded-full font-medium">
+                                                        追加済み
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleMemberAdd(member.id)}
+                                                        className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow"
+                                                    >
+                                                        追加
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-blue-600 text-center py-6 font-medium">
+                                        該当するメンバーが見つかりません
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {!searchQuery && selectedMembers.length === 0 && (
+                            <div className="text-center py-8 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+                                <svg className="mx-auto h-8 w-8 text-blue-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <p className="text-sm text-blue-600 font-medium">
+                                    上の検索ボックスでメンバーを検索してください
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* 条件設定セクション */}
@@ -194,7 +303,7 @@ export default function Home() {
                         <button
                             onClick={handleSearchCandidates}
                             disabled={selectedMembers.length === 0 || isLoading || !duration || !startDate || !endDate}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
                         >
                             {isLoading ? '検索中...' : '空き時間を検索'}
                         </button>
@@ -206,23 +315,23 @@ export default function Home() {
                             <h2 className="text-xl font-semibold text-gray-900 mb-4">
                                 3. 候補一覧
                             </h2>
-                            <p className="text-sm text-gray-600 mb-4">
+                            <p className="text-sm text-blue-600 mb-4 font-medium">
                                 全員が空いている候補です
                             </p>
                             <div className="space-y-3">
                                 {candidates.map((candidate, index) => (
                                     <div
                                         key={index}
-                                        className="flex items-center justify-between p-4 border border-gray-200 rounded-md bg-white"
+                                        className="flex items-center justify-between p-4 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-all duration-200 shadow-sm hover:shadow"
                                     >
                                         <div>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-semibold text-blue-900">
                         {candidate.date} {candidate.time}
                       </span>
                                         </div>
                                         <button
                                             onClick={() => handleCreateEvent(candidate)}
-                                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                                            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                                         >
                                             イベント作成
                                         </button>
@@ -234,7 +343,7 @@ export default function Home() {
 
                     {/* イベント作成フォーム */}
                     {showEventForm && selectedCandidate && (
-                        <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-lg shadow-md">
                             <h2 className="text-xl font-semibold text-gray-900 mb-4">
                                 4. イベント作成
                             </h2>
@@ -272,13 +381,13 @@ export default function Home() {
                                 <button
                                     onClick={handleEventSubmit}
                                     disabled={!eventTitle.trim()}
-                                    className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                                 >
                                     イベント作成
                                 </button>
                                 <button
                                     onClick={() => setShowEventForm(false)}
-                                    className="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 transition-colors"
+                                    className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition-all duration-200 font-medium border border-blue-200 shadow-sm"
                                 >
                                     キャンセル
                                 </button>
